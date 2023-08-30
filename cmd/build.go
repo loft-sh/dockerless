@@ -57,17 +57,42 @@ func (cmd *BuildCmd) Run(ctx context.Context) error {
 		return nil
 	}
 
-	image, err := cmd.build(ctx)
+	// fill parameters through env
+	if cmd.Dockerfile == "" {
+		cmd.Dockerfile = os.Getenv("DOCKERLESS_DOCKERFILE")
+		if cmd.Dockerfile == "" {
+			return fmt.Errorf("--dockerfile is missing")
+		}
+	}
+	if cmd.Context == "" {
+		cmd.Context = os.Getenv("DOCKERLESS_CONTEXT")
+		if cmd.Context == "" {
+			return fmt.Errorf("--context is missing")
+		}
+	}
+	if cmd.Target == "" {
+		cmd.Target = os.Getenv("DOCKERLESS_TARGET")
+	}
+	if len(cmd.BuildArgs) == 0 {
+		buildArgs := os.Getenv("DOCKERLESS_BUILD_ARGS")
+		if buildArgs != "" {
+			_ = json.Unmarshal([]byte(buildArgs), &cmd.BuildArgs)
+		}
+	}
+
+	// start actual build
+	image, err := cmd.build()
 	if err != nil {
 		return err
 	}
 
+	// write config file to file
 	configFile, err := image.ConfigFile()
 	if err != nil {
 		return err
 	}
 
-	out, err := json.Marshal(configFile)
+	out, err := json.MarshalIndent(configFile, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -80,7 +105,7 @@ func (cmd *BuildCmd) Run(ctx context.Context) error {
 	return nil
 }
 
-func (cmd *BuildCmd) build(ctx context.Context) (v1.Image, error) {
+func (cmd *BuildCmd) build() (v1.Image, error) {
 	// add ignore paths
 	buildIgnorePaths(cmd.IgnorePaths)
 
@@ -94,6 +119,12 @@ func (cmd *BuildCmd) build(ctx context.Context) (v1.Image, error) {
 	err = util.DeleteFilesystem()
 	if err != nil {
 		return nil, fmt.Errorf("delete filesystem: %w", err)
+	}
+
+	// change dir before building
+	err = os.Chdir(cmd.Context)
+	if err != nil {
+		return nil, fmt.Errorf("change dir: %w", err)
 	}
 
 	// let's build!
@@ -110,24 +141,32 @@ func (cmd *BuildCmd) build(ctx context.Context) (v1.Image, error) {
 		SrcContext:        cmd.Context,
 		Target:            cmd.Target,
 		CustomPlatform:    platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
-		SnapshotMode:      "redo",
+		SnapshotMode:      "time",
 		RunV2:             true,
 		NoPush:            true,
 		KanikoDir:         "/.dockerless",
 		CacheRunLayers:    true,
 		CacheCopyLayers:   true,
 		CompressedCaching: true,
+		SkipUnusedStages:  true,
 		Compression:       config.ZStd,
 		CompressionLevel:  3,
 		CacheOptions: config.CacheOptions{
+			CacheDir: "/.dockerless/cache",
 			CacheTTL: time.Hour * 24 * 7,
 		},
 	})
 	if err != nil {
+		// add a passwd as other we won't be able to exec into this container
+		_ = addPasswd()
 		return nil, err
 	}
 
 	return image, err
+}
+
+func addPasswd() error {
+	return os.WriteFile("/etc/passwd", []byte("root:x:0:0:root:/root:/.dockerless/bin/sh"), 0666)
 }
 
 func buildIgnorePaths(extraPaths []string) {
@@ -135,7 +174,9 @@ func buildIgnorePaths(extraPaths []string) {
 	ignorePaths := append([]string{
 		"/.dockerless",
 		"/workspaces",
+		"/etc/envfile.json",
 		"/etc/resolv.conf",
+		"/var/run",
 	}, extraPaths...)
 	for _, ignorePath := range ignorePaths {
 		util.AddToDefaultIgnoreList(util.IgnoreListEntry{

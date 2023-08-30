@@ -25,6 +25,7 @@ RUN --mount=from=busybox,dst=/usr/ ["busybox", "sh", "-c", "mkdir -p /.dockerles
 
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /.dockerless/ssl/certs/
 COPY files/nsswitch.conf /etc/nsswitch.conf
+
 ENV HOME /root
 ENV USER root
 ENV KANIKO_DIR /.dockerless
@@ -34,6 +35,8 @@ ENV DOCKER_CONFIG /.dockerless/.docker/
 
 COPY --from=builder /src/dockerless /.dockerless/dockerless
 COPY --from=busybox /bin /.dockerless/bin
+
+RUN ["/.dockerless/bin/sh", "-c", "echo 'root:x:0:0:root:/root:/.dockerless/bin/sh' > /etc/passwd && chmod 666 /etc/passwd"]
 
 WORKDIR /.dockerless
 

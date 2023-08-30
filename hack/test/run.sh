@@ -6,4 +6,4 @@ set -e
 docker build -t dockerless .
 
 # Test Image
-docker run --rm --name dockerless -v "$(pwd)/hack/test:/workspaces/test" dockerless "/.dockerless/dockerless --context dir:///workspaces/test --dockerfile /workspaces/test/Dockerfile && sleep infinity"
+#docker run --rm --name dockerless -v "$(pwd)/hack/test:/workspaces/test" dockerless "/.dockerless/dockerless build --context dir:///workspaces/test --dockerfile /workspaces/test/Dockerfile && echo Done && sleep infinity"

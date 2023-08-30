@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/spf13/cobra"
@@ -26,6 +27,8 @@ type StartCmd struct {
 	User   string
 	Env    []string
 	Labels []string
+
+	Wait bool
 }
 
 // NewStartCmd returns a new start command
@@ -41,6 +44,7 @@ func NewStartCmd() *cobra.Command {
 		},
 	}
 
+	cobraCmd.Flags().BoolVar(&cmd.Wait, "wait", false, "If true, will wait until the container is built.")
 	cobraCmd.Flags().StringVar(&cmd.User, "user", "", "The container user to run the entrypoint with.")
 	cobraCmd.Flags().StringArrayVar(&cmd.Entrypoint, "entrypoint", []string{}, "The entrypoint to use.")
 	cobraCmd.Flags().StringArrayVar(&cmd.Cmd, "cmd", []string{}, "The cmds to use.")
@@ -56,12 +60,26 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	}
 
 	// get the built image config
-	configFile := &v1.ConfigFile{}
-	out, err := os.ReadFile(ImageConfigOutput)
-	if err != nil {
-		return err
+	var (
+		out []byte
+		err error
+	)
+	for {
+		out, err = os.ReadFile(ImageConfigOutput)
+		if err != nil {
+			if !cmd.Wait {
+				return err
+			}
+
+			time.Sleep(time.Second)
+			continue
+		}
+
+		break
 	}
 
+	// unmarshal the config file
+	configFile := &v1.ConfigFile{}
 	err = json.Unmarshal(out, configFile)
 	if err != nil {
 		return err
@@ -99,10 +117,15 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		configFile.Config.User = cmd.User
 	}
 
-	// create working dir
-	err = os.MkdirAll(configFile.Config.WorkingDir, 0777)
-	if err != nil {
-		return fmt.Errorf("create workspace folder: %w", err)
+	// set to root if not specified
+	if configFile.Config.WorkingDir == "" {
+		configFile.Config.WorkingDir = "/"
+	} else {
+		// create working dir
+		err = os.MkdirAll(configFile.Config.WorkingDir, 0777)
+		if err != nil {
+			return fmt.Errorf("create workspace folder: %w", err)
+		}
 	}
 
 	// get user info
@@ -126,7 +149,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	}
 
 	// write container config
-	out, err = json.Marshal(configFile)
+	out, err = json.MarshalIndent(configFile, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal config file: %w", err)
 	}
@@ -139,6 +162,16 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	err = os.WriteFile(ContainerPID, []byte(strconv.Itoa(os.Getpid())), 0666)
 	if err != nil {
 		return fmt.Errorf("write container pid: %w", err)
+	}
+
+	// set container env before execution so we find executables
+	for _, env := range containerEnv {
+		splitted := strings.SplitN(env, "=", 2)
+		if len(splitted) != 2 {
+			continue
+		}
+
+		_ = os.Setenv(splitted[0], splitted[1])
 	}
 
 	// start command
@@ -184,10 +217,20 @@ func isProcessRunning(pid string) (bool, error) {
 	return true, nil
 }
 
+func setPath(containerEnvs []string) {
+	for _, containerEnv := range containerEnvs {
+		splitted := strings.SplitN(containerEnv, "=", 2)
+		if len(splitted) == 2 && strings.ToUpper(splitted[0]) == "PATH" {
+			_ = os.Setenv(splitted[0], splitted[1])
+		}
+	}
+}
+
 func getContainerEnv(homeDir string, containerEnv []string) ([]string, error) {
 	env := []string{}
 	env = append(env, "HOME="+homeDir)
 	env = append(env, containerEnv...)
+	setPath(env)
 	return env, nil
 }
 
