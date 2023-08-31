@@ -1,0 +1,153 @@
+project_name: dockerless
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+source:
+  enabled: true
+
+builds:
+  - env:
+      - GOWORK=off
+      - CGO_ENABLED=0
+      - GO111MODULE=on
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+      - -mod
+      - vendor
+    ldflags:
+      - -s -w
+
+archives:
+  - id: loft_cli_archives
+    builds:
+      - loft-cli
+    format: binary
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    builds_info:
+      group: root
+      owner: root
+    files: []
+
+sboms:
+  - id: archive_sbom
+    artifacts: archive
+
+checksum:
+  name_template: "checksums.txt"
+
+signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - "--output-certificate=${certificate}"
+      - "--output-signature=${signature}"
+      - "${artifact}"
+      - "--yes" # needed on cosign 2.0.0+
+    artifacts: checksum
+
+snapshot:
+  name_template: '{{ if eq (envOrDefault "SNAPSHOT_VERSION" "") "" }}{{ incpatch .Version }}-next{{ else }}{{ .Env.SNAPSHOT_VERSION }}{{ end }}'
+
+changelog:
+  use: github
+  abbrev: -1
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^[skip ci]"
+  groups:
+    - title: Features
+      regexp: '^.*?(?:feat|feature)(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?(?:bug|fix)(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Changes
+      order: 999
+
+release:
+  prerelease: auto
+  make_latest: false
+
+dockers:
+  - image_templates:
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Version }}-amd64
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/{{.ProjectName}}:latest-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}-amd64{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-amd64{{ end }}'
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - files
+
+  - image_templates:
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Version }}-arm64v8
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/{{.ProjectName}}:latest-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}-arm64v8{{ end }}'
+      - '{{ if eq .Prerelease "" }}ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64v8{{ end }}'
+    use: buildx
+    goarch: arm64
+    build_flag_templates:
+      - "--platform=linux/arm64/v8"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.name={{.ProjectName}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+    extra_files:
+      - files
+
+docker_manifests:
+  - name_template: ghcr.io/loft-sh/{{.ProjectName}}:{{ .Version }}
+    image_templates:
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Version }}-amd64
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Version }}-arm64v8
+
+  - name_template: ghcr.io/loft-sh/{{.ProjectName}}:latest
+    image_templates:
+      - ghcr.io/loft-sh/{{.ProjectName}}:latest-amd64
+      - ghcr.io/loft-sh/{{.ProjectName}}:latest-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}
+    image_templates:
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}-amd64
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}-arm64v8
+    skip_push: auto
+
+  - name_template: ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-amd64
+      - ghcr.io/loft-sh/{{.ProjectName}}:{{ .Major }}.{{ .Minor }}-arm64v8
+    skip_push: auto
+
+docker_signs:
+  - cmd: cosign
+    env:
+      - COSIGN_EXPERIMENTAL=1
+    artifacts: all
+    args:
+      - "sign"
+      - "${artifact}"
+      - "--yes" # needed on cosign 2.0.0+

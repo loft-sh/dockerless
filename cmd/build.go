@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,11 +19,12 @@ var ImageConfigOutput = "/.dockerless/image.json"
 type BuildCmd struct {
 	Dockerfile string
 	Context    string
-	BuildArgs  []string
 
-	Target      string
-	Insecure    bool
+	Target    string
+	BuildArgs []string
+
 	IgnorePaths []string
+	Insecure    bool
 }
 
 // NewBuildCmd returns a new build command
@@ -36,7 +36,7 @@ func NewBuildCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd.Context())
+			return cmd.Run()
 		},
 	}
 
@@ -49,7 +49,7 @@ func NewBuildCmd() *cobra.Command {
 	return cobraCmd
 }
 
-func (cmd *BuildCmd) Run(ctx context.Context) error {
+func (cmd *BuildCmd) Run() error {
 	// check if we already have built the image
 	_, err := os.Stat(ImageConfigOutput)
 	if err == nil {
@@ -89,17 +89,17 @@ func (cmd *BuildCmd) Run(ctx context.Context) error {
 	// write config file to file
 	configFile, err := image.ConfigFile()
 	if err != nil {
-		return err
+		return fmt.Errorf("get image config: %w", err)
 	}
 
 	out, err := json.MarshalIndent(configFile, "", "  ")
 	if err != nil {
-		return err
+		return fmt.Errorf("marshal image config: %w", err)
 	}
 
 	err = os.WriteFile(ImageConfigOutput, out, 0666)
 	if err != nil {
-		return err
+		return fmt.Errorf("write image config: %w", err)
 	}
 
 	return nil
@@ -158,15 +158,23 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 	})
 	if err != nil {
 		// add a passwd as other we won't be able to exec into this container
-		_ = addPasswd()
-		return nil, err
+		if addPwdErr := addPasswd(); addPwdErr != nil {
+			return nil, fmt.Errorf("build and add passwd error occurred: %w --- %w", err, addPwdErr)
+		}
+
+		return nil, fmt.Errorf("build error: %w", err)
 	}
 
-	return image, err
+	return image, nil
 }
 
 func addPasswd() error {
-	return os.WriteFile("/etc/passwd", []byte("root:x:0:0:root:/root:/.dockerless/bin/sh"), 0666)
+	err := os.WriteFile("/etc/passwd", []byte("root:x:0:0:root:/root:/.dockerless/bin/sh"), 0666)
+	if err != nil {
+		return fmt.Errorf("write passwd: %w", err)
+	}
+
+	return nil
 }
 
 func buildIgnorePaths(extraPaths []string) {

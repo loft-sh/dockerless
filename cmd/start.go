@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +14,11 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/spf13/cobra"
+)
+
+var (
+	ErrContainerAlreadyRunning = errors.New("container is already running")
+	ErrNoEntrypoint            = errors.New("no entrypoint specified")
 )
 
 var ContainerConfigOutput = "/.dockerless/container.json"
@@ -40,7 +45,7 @@ func NewStartCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cobraCmd *cobra.Command, args []string) error {
-			return cmd.Run(cobraCmd.Context())
+			return cmd.Run()
 		},
 	}
 
@@ -53,10 +58,10 @@ func NewStartCmd() *cobra.Command {
 	return cobraCmd
 }
 
-func (cmd *StartCmd) Run(ctx context.Context) error {
+func (cmd *StartCmd) Run() error {
 	// check if we already have built the image
 	if isContainerRunning() {
-		return fmt.Errorf("container is already running")
+		return ErrContainerAlreadyRunning
 	}
 
 	// get the built image config
@@ -68,7 +73,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 		out, err = os.ReadFile(ImageConfigOutput)
 		if err != nil {
 			if !cmd.Wait {
-				return err
+				return fmt.Errorf("read image config: %w", err)
 			}
 
 			time.Sleep(time.Second)
@@ -82,7 +87,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	configFile := &v1.ConfigFile{}
 	err = json.Unmarshal(out, configFile)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshal config file: %w", err)
 	}
 
 	// entrypoint
@@ -139,7 +144,7 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	entrypoint = append(entrypoint, configFile.Config.Entrypoint...)
 	entrypoint = append(entrypoint, configFile.Config.Cmd...)
 	if len(entrypoint) == 0 {
-		return fmt.Errorf("no entrypoint specified")
+		return ErrNoEntrypoint
 	}
 
 	// build the container env
@@ -183,7 +188,13 @@ func (cmd *StartCmd) Run(ctx context.Context) error {
 	containerCmd.Stdin = os.Stdin
 	containerCmd.Dir = configFile.Config.WorkingDir
 	containerCmd.Env = containerEnv
-	return containerCmd.Run()
+
+	err = containerCmd.Run()
+	if err != nil {
+		return fmt.Errorf("run container: %w", err)
+	}
+
+	return nil
 }
 
 func isContainerRunning() bool {
@@ -201,12 +212,12 @@ func isContainerRunning() bool {
 func isProcessRunning(pid string) (bool, error) {
 	parsedPid, err := strconv.Atoi(pid)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("parse pid: %w", err)
 	}
 
 	process, err := os.FindProcess(parsedPid)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("find process: %w", err)
 	}
 
 	err = process.Signal(syscall.Signal(0))
@@ -281,7 +292,18 @@ func getUser(name string) (*user.User, error) {
 	// get user
 	_, err := strconv.Atoi(name)
 	if err == nil {
-		return user.LookupId(name)
+		user, err := user.LookupId(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to lookup user by id: %w", err)
+		}
+
+		return user, nil
 	}
-	return user.Lookup(name)
+
+	user, err := user.Lookup(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup user: %w", err)
+	}
+
+	return user, nil
 }
