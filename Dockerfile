@@ -18,7 +18,6 @@ ENV USER root
 ENV KANIKO_DIR /.dockerless
 ENV PATH /usr/local/bin:/.dockerless:/.dockerless/bin
 ENV SSL_CERT_DIR=/.dockerless/ssl/certs
-ENV DOCKER_CONFIG /.dockerless/.docker/
 
 COPY dockerless /.dockerless/dockerless
 COPY --from=busybox /bin /.dockerless/bin
