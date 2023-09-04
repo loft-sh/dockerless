@@ -185,6 +185,7 @@ func buildIgnorePaths(extraPaths []string) {
 		"/etc/envfile.json",
 		"/etc/resolv.conf",
 		"/var/run",
+		"/product_uuid",
 	}, extraPaths...)
 	for _, ignorePath := range ignorePaths {
 		util.AddToDefaultIgnoreList(util.IgnoreListEntry{
