@@ -73,11 +73,13 @@ func (cmd *BuildCmd) Run() error {
 	if cmd.Target == "" {
 		cmd.Target = os.Getenv("DOCKERLESS_TARGET")
 	}
-	if len(cmd.BuildArgs) == 0 {
-		buildArgs := os.Getenv("DOCKERLESS_BUILD_ARGS")
-		if buildArgs != "" {
-			_ = json.Unmarshal([]byte(buildArgs), &cmd.BuildArgs)
-		}
+
+	// parse extra build args
+	buildArgs := os.Getenv("DOCKERLESS_BUILD_ARGS")
+	if buildArgs != "" {
+		extraBuildArgs := []string{}
+		_ = json.Unmarshal([]byte(buildArgs), &extraBuildArgs)
+		cmd.BuildArgs = append(cmd.BuildArgs, extraBuildArgs...)
 	}
 
 	// start actual build
