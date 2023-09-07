@@ -124,7 +124,7 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 	}
 
 	// change dir before building
-	err = os.Chdir(cmd.Context)
+	err = os.Chdir("/")
 	if err != nil {
 		return nil, fmt.Errorf("change dir: %w", err)
 	}
@@ -161,7 +161,7 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 	if err != nil {
 		// add a passwd as other we won't be able to exec into this container
 		if addPwdErr := addPasswd(); addPwdErr != nil {
-			return nil, fmt.Errorf("build and add passwd error occurred: %w --- %w", err, addPwdErr)
+			return nil, fmt.Errorf("build and add passwd error occurred: %w --- %v", err, addPwdErr)
 		}
 
 		return nil, fmt.Errorf("build error: %w", err)

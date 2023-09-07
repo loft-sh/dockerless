@@ -24,7 +24,7 @@ COPY --from=busybox /bin /.dockerless/bin
 
 RUN ["/.dockerless/bin/sh", "-c", "echo 'root:x:0:0:root:/root:/.dockerless/bin/sh' > /etc/passwd && chmod 666 /etc/passwd"]
 
-WORKDIR /.dockerless
+WORKDIR /
 
 ENTRYPOINT ["/.dockerless/bin/sh", "-c"]
 
