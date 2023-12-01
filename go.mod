@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/GoogleContainerTools/kaniko v1.9.2
-	github.com/containerd/containerd v1.7.8
+	github.com/containerd/containerd v1.7.10
 	github.com/google/go-containerregistry v0.15.2
 	github.com/spf13/cobra v1.7.0
 )
@@ -23,7 +23,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/Microsoft/hcsshim v0.11.1 // indirect
+	github.com/Microsoft/hcsshim v0.11.4 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.21.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.18.37 // indirect
