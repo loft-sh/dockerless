@@ -6,7 +6,7 @@ require (
 	github.com/GoogleContainerTools/kaniko v1.9.2
 	github.com/containerd/containerd v1.7.8
 	github.com/google/go-containerregistry v0.15.2
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.8.0
 )
 
 require (
