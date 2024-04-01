@@ -4,7 +4,7 @@ go 1.21.0
 
 require (
 	github.com/GoogleContainerTools/kaniko v1.9.2
-	github.com/containerd/containerd v1.7.11
+	github.com/containerd/containerd v1.7.14
 	github.com/google/go-containerregistry v0.15.2
 	github.com/spf13/cobra v1.8.0
 )
@@ -90,7 +90,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
 	github.com/opencontainers/runc v1.1.5 // indirect
-	github.com/opencontainers/runtime-spec v1.1.0-rc.1 // indirect
+	github.com/opencontainers/runtime-spec v1.1.0 // indirect
 	github.com/opencontainers/selinux v1.11.0 // indirect
 	github.com/otiai10/copy v1.12.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
