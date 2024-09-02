@@ -23,9 +23,9 @@ type BuildCmd struct {
 	Target    string
 	BuildArgs []string
 
-	IgnorePaths   []string
-	Insecure      bool
-	RegistryCache string
+	IgnorePaths []string
+	Insecure    bool
+	Registry    string
 }
 
 // NewBuildCmd returns a new build command
@@ -47,7 +47,7 @@ func NewBuildCmd() *cobra.Command {
 	cobraCmd.Flags().StringArrayVar(&cmd.BuildArgs, "build-arg", []string{}, "Docker build args.")
 	cobraCmd.Flags().StringArrayVar(&cmd.IgnorePaths, "ignore-path", []string{}, "Extra paths to exclude from deletion.")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, "If true will not check for certificates")
-	cobraCmd.Flags().StringVar(&cmd.RegistryCache, "registry-cache", "gcr.io/pascal-project-387807/my-dev-env", "Registry to use as remote cache.")
+	cobraCmd.Flags().StringVar(&cmd.Registry, "registry-cache", "gcr.io/pascal-project-387807/my-dev-env", "Registry to use as remote cache.")
 	return cobraCmd
 }
 
@@ -159,8 +159,8 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 			CacheTTL: time.Hour * 24 * 7,
 		},
 	}
-	if cmd.RegistryCache != "" {
-		opts.CacheRepo = cmd.RegistryCache
+	if cmd.Registry != "" {
+		opts.CacheRepo = cmd.Registry
 	} else {
 		opts.CacheOptions.CacheDir = "/.dockerless/cache"
 	}
