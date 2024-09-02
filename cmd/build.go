@@ -23,8 +23,9 @@ type BuildCmd struct {
 	Target    string
 	BuildArgs []string
 
-	IgnorePaths []string
-	Insecure    bool
+	IgnorePaths   []string
+	Insecure      bool
+	RegistryCache string
 }
 
 // NewBuildCmd returns a new build command
@@ -46,6 +47,7 @@ func NewBuildCmd() *cobra.Command {
 	cobraCmd.Flags().StringArrayVar(&cmd.BuildArgs, "build-arg", []string{}, "Docker build args.")
 	cobraCmd.Flags().StringArrayVar(&cmd.IgnorePaths, "ignore-path", []string{}, "Extra paths to exclude from deletion.")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, "If true will not check for certificates")
+	cobraCmd.Flags().StringVar(&cmd.RegistryCache, "registry-cache", "gcr.io/pascal-project-387807/my-dev-env", "Registry to use as remote cache.")
 	return cobraCmd
 }
 
@@ -129,8 +131,7 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 		return nil, fmt.Errorf("change dir: %w", err)
 	}
 
-	// let's build!
-	image, err := executor.DoBuild(&config.KanikoOptions{
+	opts := &config.KanikoOptions{
 		Destinations:   []string{"local"},
 		Unpack:         true,
 		BuildArgs:      cmd.BuildArgs,
@@ -147,6 +148,7 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 		RunV2:             true,
 		NoPush:            true,
 		KanikoDir:         "/.dockerless",
+		Cache:             true,
 		CacheRunLayers:    true,
 		CacheCopyLayers:   true,
 		CompressedCaching: true,
@@ -154,10 +156,17 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 		Compression:       config.ZStd,
 		CompressionLevel:  3,
 		CacheOptions: config.CacheOptions{
-			CacheDir: "/.dockerless/cache",
 			CacheTTL: time.Hour * 24 * 7,
 		},
-	})
+	}
+	if cmd.RegistryCache != "" {
+		opts.CacheRepo = cmd.RegistryCache
+	} else {
+		opts.CacheOptions.CacheDir = "/.dockerless/cache"
+	}
+
+	// let's build!
+	image, err := executor.DoBuild(opts)
 	if err != nil {
 		// add a passwd as other we won't be able to exec into this container
 		if addPwdErr := addPasswd(); addPwdErr != nil {
