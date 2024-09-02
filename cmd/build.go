@@ -24,8 +24,8 @@ type BuildCmd struct {
 	BuildArgs []string
 
 	IgnorePaths []string
-	Insecure    bool
 	Registry    string
+	Insecure    bool
 }
 
 // NewBuildCmd returns a new build command
