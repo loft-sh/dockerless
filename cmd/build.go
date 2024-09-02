@@ -17,14 +17,12 @@ import (
 var ImageConfigOutput = "/.dockerless/image.json"
 
 type BuildCmd struct {
-	Dockerfile string
-	Context    string
-
-	Target    string
-	BuildArgs []string
-
-	IgnorePaths []string
+	Dockerfile  string
+	Context     string
+	Target      string
 	Registry    string
+	BuildArgs   []string
+	IgnorePaths []string
 	Insecure    bool
 }
 
