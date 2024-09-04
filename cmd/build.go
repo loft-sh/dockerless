@@ -45,7 +45,7 @@ func NewBuildCmd() *cobra.Command {
 	cobraCmd.Flags().StringArrayVar(&cmd.BuildArgs, "build-arg", []string{}, "Docker build args.")
 	cobraCmd.Flags().StringArrayVar(&cmd.IgnorePaths, "ignore-path", []string{}, "Extra paths to exclude from deletion.")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, "If true will not check for certificates")
-	cobraCmd.Flags().StringVar(&cmd.Registry, "registry-cache", "gcr.io/pascal-project-387807/my-dev-env", "Registry to use as remote cache.")
+	cobraCmd.Flags().StringVar(&cmd.Registry, "registry-cache", "", "Registry to use as remote cache.")
 	return cobraCmd
 }
 
