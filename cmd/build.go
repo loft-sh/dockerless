@@ -14,17 +14,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const DEFAULT_CACHE_DIR = "/.dockerless/cache"
+
 var ImageConfigOutput = "/.dockerless/image.json"
 
 type BuildCmd struct {
-	Dockerfile  string
-	Context     string
-	Target      string
-	Registry    string
-	BuildArgs   []string
-	IgnorePaths []string
-	Insecure    bool
-	ExportCache bool
+	Dockerfile    string
+	Context       string
+	Target        string
+	RegistryCache string
+	BuildArgs     []string
+	IgnorePaths   []string
+	Insecure      bool
+	ExportCache   bool
 }
 
 // NewBuildCmd returns a new build command
@@ -46,7 +48,7 @@ func NewBuildCmd() *cobra.Command {
 	cobraCmd.Flags().StringArrayVar(&cmd.BuildArgs, "build-arg", []string{}, "Docker build args.")
 	cobraCmd.Flags().StringArrayVar(&cmd.IgnorePaths, "ignore-path", []string{}, "Extra paths to exclude from deletion.")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, "If true will not check for certificates")
-	cobraCmd.Flags().StringVar(&cmd.Registry, "registry-cache", "", "Registry to use as remote cache.")
+	cobraCmd.Flags().StringVar(&cmd.RegistryCache, "registry-cache", "", "Registry to use as remote cache.")
 	cobraCmd.Flags().BoolVar(&cmd.ExportCache, "export-cache", false, "If true kanoiko build push cache to registry.")
 	return cobraCmd
 }
@@ -161,10 +163,10 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 			CacheTTL: time.Hour * 24 * 7,
 		},
 	}
-	if cmd.Registry != "" {
-		opts.CacheRepo = cmd.Registry
+	if cmd.RegistryCache != "" {
+		opts.CacheRepo = cmd.RegistryCache
 	} else {
-		opts.CacheOptions.CacheDir = "/.dockerless/cache"
+		opts.CacheOptions.CacheDir = DEFAULT_CACHE_DIR
 	}
 	if !cmd.ExportCache {
 		opts.SingleSnapshot = true
