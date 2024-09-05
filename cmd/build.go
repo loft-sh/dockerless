@@ -14,17 +14,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultCacheDir = "/.dockerless/cache"
+
 var ImageConfigOutput = "/.dockerless/image.json"
 
 type BuildCmd struct {
-	Dockerfile string
-	Context    string
-
-	Target    string
-	BuildArgs []string
-
-	IgnorePaths []string
-	Insecure    bool
+	Dockerfile    string
+	Context       string
+	Target        string
+	RegistryCache string
+	BuildArgs     []string
+	IgnorePaths   []string
+	Insecure      bool
+	ExportCache   bool
 }
 
 // NewBuildCmd returns a new build command
@@ -46,6 +48,8 @@ func NewBuildCmd() *cobra.Command {
 	cobraCmd.Flags().StringArrayVar(&cmd.BuildArgs, "build-arg", []string{}, "Docker build args.")
 	cobraCmd.Flags().StringArrayVar(&cmd.IgnorePaths, "ignore-path", []string{}, "Extra paths to exclude from deletion.")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, "If true will not check for certificates")
+	cobraCmd.Flags().StringVar(&cmd.RegistryCache, "registry-cache", "", "Registry to use as remote cache.")
+	cobraCmd.Flags().BoolVar(&cmd.ExportCache, "export-cache", false, "If true kanoiko build push cache to registry.")
 	return cobraCmd
 }
 
@@ -129,8 +133,7 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 		return nil, fmt.Errorf("change dir: %w", err)
 	}
 
-	// let's build!
-	image, err := executor.DoBuild(&config.KanikoOptions{
+	opts := &config.KanikoOptions{
 		Destinations:   []string{"local"},
 		Unpack:         true,
 		BuildArgs:      cmd.BuildArgs,
@@ -140,24 +143,37 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 			InsecurePull:  cmd.Insecure,
 			SkipTLSVerify: cmd.Insecure,
 		},
-		SrcContext:        cmd.Context,
-		Target:            cmd.Target,
-		CustomPlatform:    platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
-		SnapshotMode:      "time",
-		RunV2:             true,
-		NoPush:            true,
-		KanikoDir:         "/.dockerless",
-		CacheRunLayers:    true,
-		CacheCopyLayers:   true,
-		CompressedCaching: true,
-		SkipUnusedStages:  true,
-		Compression:       config.ZStd,
-		CompressionLevel:  3,
+		SrcContext:          cmd.Context,
+		Target:              cmd.Target,
+		CustomPlatform:      platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
+		SnapshotMode:        "redo",
+		RunV2:               true,
+		NoPush:              true,
+		KanikoDir:           "/.dockerless",
+		Cache:               true,
+		CacheRunLayers:      true,
+		CacheCopyLayers:     true,
+		CompressedCaching:   true,
+		SkipUnusedStages:    true,
+		ImageFSExtractRetry: 3,
+		NoPushCache:         !cmd.ExportCache,
+		Compression:         config.ZStd,
+		CompressionLevel:    3,
 		CacheOptions: config.CacheOptions{
-			CacheDir: "/.dockerless/cache",
 			CacheTTL: time.Hour * 24 * 7,
 		},
-	})
+	}
+	if cmd.RegistryCache != "" {
+		opts.CacheRepo = cmd.RegistryCache
+	} else {
+		opts.CacheOptions.CacheDir = defaultCacheDir
+	}
+	if !cmd.ExportCache {
+		opts.SingleSnapshot = true
+	}
+
+	// let's build!
+	image, err := executor.DoBuild(opts)
 	if err != nil {
 		// add a passwd as other we won't be able to exec into this container
 		if addPwdErr := addPasswd(); addPwdErr != nil {
