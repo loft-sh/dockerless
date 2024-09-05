@@ -24,6 +24,7 @@ type BuildCmd struct {
 	BuildArgs   []string
 	IgnorePaths []string
 	Insecure    bool
+	ExportCache bool
 }
 
 // NewBuildCmd returns a new build command
@@ -46,6 +47,7 @@ func NewBuildCmd() *cobra.Command {
 	cobraCmd.Flags().StringArrayVar(&cmd.IgnorePaths, "ignore-path", []string{}, "Extra paths to exclude from deletion.")
 	cobraCmd.Flags().BoolVar(&cmd.Insecure, "insecure", true, "If true will not check for certificates")
 	cobraCmd.Flags().StringVar(&cmd.Registry, "registry-cache", "", "Registry to use as remote cache.")
+	cobraCmd.Flags().BoolVar(&cmd.ExportCache, "export-cache", false, "If true kanoiko build push cache to registry.")
 	return cobraCmd
 }
 
@@ -139,20 +141,22 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 			InsecurePull:  cmd.Insecure,
 			SkipTLSVerify: cmd.Insecure,
 		},
-		SrcContext:        cmd.Context,
-		Target:            cmd.Target,
-		CustomPlatform:    platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
-		SnapshotMode:      "time",
-		RunV2:             true,
-		NoPush:            true,
-		KanikoDir:         "/.dockerless",
-		Cache:             true,
-		CacheRunLayers:    true,
-		CacheCopyLayers:   true,
-		CompressedCaching: true,
-		SkipUnusedStages:  true,
-		Compression:       config.ZStd,
-		CompressionLevel:  3,
+		SrcContext:          cmd.Context,
+		Target:              cmd.Target,
+		CustomPlatform:      platforms.Format(platforms.Normalize(platforms.DefaultSpec())),
+		SnapshotMode:        "redo",
+		RunV2:               true,
+		NoPush:              true,
+		KanikoDir:           "/.dockerless",
+		Cache:               true,
+		CacheRunLayers:      true,
+		CacheCopyLayers:     true,
+		CompressedCaching:   true,
+		SkipUnusedStages:    true,
+		ImageFSExtractRetry: 3,
+		NoPushCache:         !cmd.ExportCache,
+		Compression:         config.ZStd,
+		CompressionLevel:    3,
 		CacheOptions: config.CacheOptions{
 			CacheTTL: time.Hour * 24 * 7,
 		},
@@ -161,6 +165,9 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 		opts.CacheRepo = cmd.Registry
 	} else {
 		opts.CacheOptions.CacheDir = "/.dockerless/cache"
+	}
+	if !cmd.ExportCache {
+		opts.SingleSnapshot = true
 	}
 
 	// let's build!
