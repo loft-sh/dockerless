@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const DEFAULT_CACHE_DIR = "/.dockerless/cache"
+const defaultCacheDir = "/.dockerless/cache"
 
 var ImageConfigOutput = "/.dockerless/image.json"
 
@@ -166,7 +166,7 @@ func (cmd *BuildCmd) build() (v1.Image, error) {
 	if cmd.RegistryCache != "" {
 		opts.CacheRepo = cmd.RegistryCache
 	} else {
-		opts.CacheOptions.CacheDir = DEFAULT_CACHE_DIR
+		opts.CacheOptions.CacheDir = defaultCacheDir
 	}
 	if !cmd.ExportCache {
 		opts.SingleSnapshot = true
