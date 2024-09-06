@@ -51,6 +51,6 @@ jobs:
           version: "~> 2"
           args: release --clean --timeout 60m
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ steps.get_version.outputs.release_version }}
           GORELEASER_PREVIOUS_TAG: ${{ steps.get_version.outputs.previous_tag }}
